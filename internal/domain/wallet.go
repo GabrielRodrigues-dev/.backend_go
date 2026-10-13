@@ -71,6 +71,18 @@ func (w *Wallet) Debit(amount Money) error {
 	return nil
 }
 
+// RestoreWallet recria a entidade a partir dos dados do banco (Reidratação).
+func RestoreWallet(id, playerId string, cents int64, currency string, version int, createdAt, updatedAt time.Time) Wallet {
+	return Wallet{
+		id:        id,
+		playerId:  playerId,
+		balance:   Money{cents: cents, currency: currency},
+		version:   version,
+		createdAt: createdAt,
+		updatedAt: updatedAt,
+	}
+}
+
 // Getters para expor os dados para o banco de dados futuramente
 func (w Wallet) ID() string           { return w.id }
 func (w Wallet) PlayerID() string     { return w.playerId }
