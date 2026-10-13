@@ -1,0 +1,9 @@
+# Binários
+/bin
+/*.exe
+
+# Ambiente
+.env
+
+# Pastas do SO
+.DS_Store
