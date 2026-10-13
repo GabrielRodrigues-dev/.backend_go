@@ -72,7 +72,9 @@ func (w *Wallet) Debit(amount Money) error {
 }
 
 // Getters para expor os dados para o banco de dados futuramente
-func (w Wallet) ID() string       { return w.id }
-func (w Wallet) PlayerID() string { return w.playerId }
-func (w Wallet) Balance() Money   { return w.balance }
-func (w Wallet) Version() int     { return w.version }
+func (w Wallet) ID() string           { return w.id }
+func (w Wallet) PlayerID() string     { return w.playerId }
+func (w Wallet) Balance() Money       { return w.balance }
+func (w Wallet) Version() int         { return w.version }
+func (w Wallet) CreatedAt() time.Time { return w.createdAt }
+func (w Wallet) UpdatedAt() time.Time { return w.updatedAt }
