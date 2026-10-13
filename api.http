@@ -1,0 +1,9 @@
+POST http://localhost:8080/bet
+Content-Type: application/json
+
+{
+    "wallet_id": "wallet-teste-1791925236121841100",
+    "transaction_id": "tx-http-001",
+    "amount": "10.00",
+    "currency": "BRL"
+}
