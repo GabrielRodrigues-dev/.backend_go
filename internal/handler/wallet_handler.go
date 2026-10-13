@@ -65,12 +65,12 @@ func (h *WalletHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 
 	// 5. Cria o Registo no Ledger e salva no banco atômicamente
 	ledgerEntry := domain.NewLedgerEntry(
-		req.TransactionID, wallet.ID(), "game-provider-req", "DEBIT", betAmount, initialMoney, wallet.Balance(),
+		"ledger-"+req.TransactionID, wallet.ID(), req.TransactionID, "DEBIT", betAmount, initialMoney, wallet.Balance(),
 	)
 
 	err = h.repo.ProcessTransaction(ctx, wallet.ID(), ledgerEntry, wallet.Version())
 	if err != nil {
-		// Se der erro aqui, é provável que seja o nosso conflito de concorrência!
+		fmt.Printf(">> Erro ao salvar transacao no banco: %v\n", err)
 		http.Error(w, "Conflict processing transaction", http.StatusConflict)
 		return
 	}
