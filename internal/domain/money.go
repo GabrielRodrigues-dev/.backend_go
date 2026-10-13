@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -58,4 +59,53 @@ func (m Money) Amount() string {
 // Currency retorna a moeda
 func (m Money) Currency() string {
 	return m.currency
+}
+
+// ZeroMoney cria um valor zerado para uma moeda específica.
+func ZeroMoney(currency string) Money {
+	return Money{cents: 0, currency: currency}
+}
+
+// Soma de dois valores.
+func (m Money) Add(other Money) (Money, error) {
+	if m.currency != other.currency {
+		return Money{}, ErrCurrencyMismatch
+	}
+	// Prevenção de Overflow
+	if (other.cents > 0 && m.cents > math.MaxInt64-other.cents) ||
+		(other.cents < 0 && m.cents < math.MinInt64-other.cents) {
+		return Money{}, errors.New("overflow na soma")
+	}
+	return Money{cents: m.cents + other.cents, currency: m.currency}, nil
+}
+
+// Subtração de dois valores.
+func (m Money) Subtract(other Money) (Money, error) {
+	if m.currency != other.currency {
+		return Money{}, ErrCurrencyMismatch
+	}
+	// Prevenção de Overflow
+	if (other.cents < 0 && m.cents > math.MaxInt64+other.cents) ||
+		(other.cents > 0 && m.cents < math.MinInt64+other.cents) {
+		return Money{}, errors.New("overflow na subtracao")
+	}
+	return Money{cents: m.cents - other.cents, currency: m.currency}, nil
+}
+
+// Negate inverte o sinal do valor.
+func (m Money) Negate() (Money, error) {
+	// Prevenção de Overflow
+	if m.cents == math.MinInt64 {
+		return Money{}, errors.New("overflow na negacao")
+	}
+	return Money{cents: -m.cents, currency: m.currency}, nil
+}
+
+// Métodos auxiliares de comparação
+func (m Money) IsNegative() bool {
+	return m.cents < 0
+}
+
+func (m Money) Cents() int64 {
+	return m.cents
 }
