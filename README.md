@@ -26,25 +26,25 @@ O diagrama abaixo ilustra como os componentes interagem, garantindo que as regra
 ```mermaid
 flowchart TD
     %% Nós Externos
-    IdP[Keycloak IdP\nOAuth 2.0]
+    IdP[Keycloak IdP<br>OAuth 2.0]
     GameProv[Game Provider]
-    AWS[AWS SQS\nLocalStack]
-    EventBus[Event Bus\nSNS/Kafka]
+    AWS[AWS SQS<br>LocalStack]
+    EventBus[Event Bus<br>SNS/Kafka]
     
     %% API e Workers
-    API[HTTP Server\n:8080]
-    SQSWorker[SQS Consumer\nWorker]
-    OutboxWorker[Outbox Publisher\nWorker]
+    API[HTTP Server<br>:8080]
+    SQSWorker[SQS Consumer<br>Worker]
+    OutboxWorker[Outbox Publisher<br>Worker]
     
     %% Core Business (Domínio / Use Case)
-    UseCase{ProcessBet\nUse Case}
+    UseCase{ProcessBet<br>Use Case}
     
     %% Database (Transação Atómica)
     subgraph Database[PostgreSQL - Transação Única]
-        Inbox[(Inbox\nDeduplication)]
-        Wallet[(Wallet\nBalance & Lock)]
-        Ledger[(Ledger\nEntries)]
-        Outbox[(Outbox\nEvents)]
+        Inbox[(Inbox<br>Deduplication)]
+        Wallet[(Wallet<br>Balance & Lock)]
+        Ledger[(Ledger<br>Entries)]
+        Outbox[(Outbox<br>Events)]
     end
 
     %% Fluxos HTTP
@@ -69,7 +69,6 @@ flowchart TD
     %% Worker Secundário
     OutboxWorker -- Lê Eventos Pendentes --> Outbox
     OutboxWorker -- Publica Assincronamente --> EventBus
-
 ## Requisitos
 
 - [Go 1.20+](https://go.dev/dl/)
