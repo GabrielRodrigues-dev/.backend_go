@@ -17,58 +17,6 @@ Aprendi na prática sobre:
 
 Foi uma jornada de sair totalmente da zona de conforto (do loop visual de um jogo para o mundo silencioso de *workers* de background e logs de terminal), mas que me deu uma base incrível de engenharia de software backend.
 
----
-
-## 🏗️ Arquitetura do Sistema
-
-O diagrama abaixo ilustra como os componentes interagem, garantindo que as regras financeiras sejam respeitadas, quer a aposta chegue por HTTP ou por SQS, utilizando uma transação atómica que abrange a carteira, o livro-razão (ledger) e as tabelas de deduplicação e eventos.
-
-```mermaid
-flowchart TD
-    %% Nós Externos
-    IdP[Keycloak IdP<br>OAuth 2.0]
-    GameProv[Game Provider]
-    AWS[AWS SQS<br>LocalStack]
-    EventBus[Event Bus<br>SNS/Kafka]
-    
-    %% API e Workers
-    API[HTTP Server<br>:8080]
-    SQSWorker[SQS Consumer<br>Worker]
-    OutboxWorker[Outbox Publisher<br>Worker]
-    
-    %% Core Business (Domínio / Use Case)
-    UseCase{ProcessBet<br>Use Case}
-    
-    %% Database (Transação Atómica)
-    subgraph Database[PostgreSQL - Transação Única]
-        Inbox[(Inbox<br>Deduplication)]
-        Wallet[(Wallet<br>Balance & Lock)]
-        Ledger[(Ledger<br>Entries)]
-        Outbox[(Outbox<br>Events)]
-    end
-
-    %% Fluxos HTTP
-    GameProv -- 1. Autenticação --> IdP
-    IdP -- 2. JWT Token --> GameProv
-    GameProv -- 3. POST /bet --> API
-    API -- Valida Token --> IdP
-    
-    %% Fluxo SQS
-    AWS -- Polling FIFO --> SQSWorker
-    
-    %% Core Logic
-    API -- Invoca --> UseCase
-    SQSWorker -- Invoca --> UseCase
-    
-    %% Operações no Banco
-    UseCase -- 1. Verifica ID --> Inbox
-    UseCase -- 2. FOR NO KEY UPDATE --> Wallet
-    UseCase -- 3. Regista Movimento --> Ledger
-    UseCase -- 4. Guarda Evento --> Outbox
-    
-    %% Worker Secundário
-    OutboxWorker -- Lê Eventos Pendentes --> Outbox
-    OutboxWorker -- Publica Assincronamente --> EventBus
 ## Requisitos
 
 - [Go 1.20+](https://go.dev/dl/)
@@ -160,3 +108,55 @@ go vet ./...
 go test ./...
 go test -race ./...
 \`\`\`
+
+## 🏗️ Arquitetura do Sistema
+
+O diagrama abaixo ilustra como os componentes interagem, garantindo que as regras financeiras sejam respeitadas, quer a aposta chegue por HTTP ou por SQS, utilizando uma transação atómica que abrange a carteira, o livro-razão (ledger) e as tabelas de deduplicação e eventos.
+
+```mermaid
+flowchart TD
+    %% Nós Externos
+    IdP[Keycloak IdP<br>OAuth 2.0]
+    GameProv[Game Provider]
+    AWS[AWS SQS<br>LocalStack]
+    EventBus[Event Bus<br>SNS/Kafka]
+    
+    %% API e Workers
+    API[HTTP Server<br>:8080]
+    SQSWorker[SQS Consumer<br>Worker]
+    OutboxWorker[Outbox Publisher<br>Worker]
+    
+    %% Core Business (Domínio / Use Case)
+    UseCase{ProcessBet<br>Use Case}
+    
+    %% Database (Transação Atómica)
+    subgraph Database[PostgreSQL - Transação Única]
+        Inbox[(Inbox<br>Deduplication)]
+        Wallet[(Wallet<br>Balance & Lock)]
+        Ledger[(Ledger<br>Entries)]
+        Outbox[(Outbox<br>Events)]
+    end
+
+    %% Fluxos HTTP
+    GameProv -- 1. Autenticação --> IdP
+    IdP -- 2. JWT Token --> GameProv
+    GameProv -- 3. POST /bet --> API
+    API -- Valida Token --> IdP
+    
+    %% Fluxo SQS
+    AWS -- Polling FIFO --> SQSWorker
+    
+    %% Core Logic
+    API -- Invoca --> UseCase
+    SQSWorker -- Invoca --> UseCase
+    
+    %% Operações no Banco
+    UseCase -- 1. Verifica ID --> Inbox
+    UseCase -- 2. FOR NO KEY UPDATE --> Wallet
+    UseCase -- 3. Regista Movimento --> Ledger
+    UseCase -- 4. Guarda Evento --> Outbox
+    
+    %% Worker Secundário
+    OutboxWorker -- Lê Eventos Pendentes --> Outbox
+    OutboxWorker -- Publica Assincronamente --> EventBus
+```
