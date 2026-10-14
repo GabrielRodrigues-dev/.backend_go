@@ -2,24 +2,43 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"go.uber.org/fx"
+
+	"github.com/GabrielRodrigues-dev/backend_go/internal/usecase"
 )
 
-type SQSWorker struct {
-	client   *sqs.Client
-	queueURL string
+// SQSMessageBody modela exatamente o formato de mensagem exigido no desafio.
+type SQSMessageBody struct {
+	MessageId string `json:"messageId"`
+	Data      struct {
+		WalletId              string `json:"walletId"`
+		ExternalTransactionId string `json:"externalTransactionId"`
+		IdempotencyKey        string `json:"idempotencyKey"`
+		Money                 struct {
+			Amount   string `json:"amount"`
+			Currency string `json:"currency"`
+		} `json:"money"`
+	} `json:"data"`
 }
 
-func NewSQSWorker(client *sqs.Client) *SQSWorker {
+type SQSWorker struct {
+	client     *sqs.Client
+	queueURL   string
+	processBet *usecase.ProcessBetUseCase
+}
+
+// NewSQSWorker recebe o cliente AWS e o UseCase injetados automaticamente pelo Uber Fx
+func NewSQSWorker(client *sqs.Client, processBet *usecase.ProcessBetUseCase) *SQSWorker {
 	return &SQSWorker{
-		client: client,
-		// O URL que o LocalStack gerou quando executou o script de setup
-		queueURL: "http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/wager-transactions.fifo",
+		client:     client,
+		queueURL:   "http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/wager-transactions.fifo",
+		processBet: processBet,
 	}
 }
 
@@ -63,10 +82,34 @@ func (w *SQSWorker) consumeLoop(ctx context.Context) {
 			}
 
 			for _, msg := range out.Messages {
-				fmt.Printf(">> Mensagem recebida da Fila SQS: ID %s\n", *msg.MessageId)
+				var body SQSMessageBody
+				if err := json.Unmarshal([]byte(*msg.Body), &body); err != nil {
+					fmt.Printf("Erro ao ler JSON do SQS: %v\n", err)
+					// Se o JSON for inválido, não apaga a mensagem.
+					// Ela vai para a Dead Letter Queue (DLQ) após algumas tentativas.
+					continue
+				}
 
-				// O processamento de negócio será injetado aqui na próxima fase!
+				fmt.Printf("\n>> [SQS WORKER] Processando aposta %s para carteira %s\n", body.Data.ExternalTransactionId, body.Data.WalletId)
 
+				// 1. Mapeia a mensagem da fila para o formato do nosso Cérebro Central
+				input := usecase.ProcessBetInput{
+					WalletID:       body.Data.WalletId,
+					TransactionID:  body.Data.ExternalTransactionId,
+					Amount:         body.Data.Money.Amount,
+					Currency:       body.Data.Money.Currency,
+					IdempotencyKey: body.Data.IdempotencyKey, // A fila também usa Idempotência!
+				}
+
+				// 2. Executa as regras de negócio!
+				err := w.processBet.Execute(ctx, input)
+				if err != nil {
+					fmt.Printf(">> [SQS WORKER] Operação rejeitada: %v\n", err)
+				} else {
+					fmt.Printf(">> [SQS WORKER] SUCESSO! Aposta salva no banco de dados.\n")
+				}
+
+				// 3. O desafio exige que a mensagem seja apagada apenas APÓS o tratamento no banco.
 				w.client.DeleteMessage(ctx, &sqs.DeleteMessageInput{
 					QueueUrl:      aws.String(w.queueURL),
 					ReceiptHandle: msg.ReceiptHandle,
