@@ -7,6 +7,7 @@ import (
 	"github.com/GabrielRodrigues-dev/backend_go/internal/handler"
 	"github.com/GabrielRodrigues-dev/backend_go/internal/infrastructure/db"
 	"github.com/GabrielRodrigues-dev/backend_go/internal/repository"
+	"github.com/GabrielRodrigues-dev/backend_go/internal/usecase"
 	"github.com/GabrielRodrigues-dev/backend_go/internal/worker"
 )
 
@@ -15,10 +16,11 @@ func main() {
 		// PROVIDE: Ensina o Fx a construir as ferramentas
 		fx.Provide(
 			db.NewPostgresPool,
-			db.NewSQSClient, // <--- Cliente AWS
+			db.NewSQSClient,
 			repository.NewWalletRepository,
+			usecase.NewProcessBetUseCase,
 			handler.NewWalletHandler,
-			worker.NewSQSWorker, // <--- Construtor do Worker
+			worker.NewSQSWorker,
 		),
 		// INVOKE: Diz ao Fx o que deve arrancar
 		fx.Invoke(
