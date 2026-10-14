@@ -17,6 +17,7 @@ func StartHTTPServer(lc fx.Lifecycle, walletHandler *handler.WalletHandler) {
 
 	// Registamos a nossa rota enrolada no Middleware de Autenticação
 	mux.HandleFunc("/bet", AuthMiddleware(walletHandler.PlaceBet))
+	mux.HandleFunc("/wallets", AuthMiddleware(walletHandler.CreateWallet))
 
 	srv := &http.Server{
 		Addr:    ":8080",

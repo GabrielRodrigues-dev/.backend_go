@@ -146,3 +146,57 @@ func (r *WalletRepository) ProcessTransaction(
 
 	return nil
 }
+
+// CreateWalletTx insere uma nova carteira e, se houver saldo inicial, guarda o ledger e a outbox na mesma transação.
+func (r *WalletRepository) CreateWalletTx(
+	ctx context.Context,
+	w domain.Wallet,
+	ledger *domain.LedgerEntry,
+	events []domain.OutboxEvent,
+) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("erro ao iniciar transacao: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Cria a Carteira
+	_, err = tx.Exec(ctx, `
+		INSERT INTO wallets (id, player_id, balance_cents, currency, version, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, w.ID(), w.PlayerID(), w.Balance().Cents(), w.Balance().Currency(), w.Version(), w.CreatedAt(), w.UpdatedAt())
+
+	if err != nil {
+		return fmt.Errorf("erro ao inserir carteira (pode já existir para este jogador e moeda): %w", err)
+	}
+
+	// 2. Se houver Ledger (saldo inicial > 0), cria o registo
+	if ledger != nil {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO wallet_ledger_entries 
+			(id, wallet_id, transaction_id, direction, amount_cents, balance_before_cents, balance_after_cents, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`, ledger.ID(), ledger.WalletID(), ledger.TransactionID(), ledger.Direction(),
+			ledger.Amount().Cents(), ledger.BalanceBefore().Cents(), ledger.BalanceAfter().Cents(), ledger.CreatedAt())
+
+		if err != nil {
+			return fmt.Errorf("erro ao inserir ledger inicial: %w", err)
+		}
+	}
+
+	// 3. Se houver Eventos, guarda na Outbox
+	for _, ev := range events {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO outbox (event_id, aggregate_id, event_type, payload, created_at) 
+			VALUES ($1, $2, $3, $4, $5)
+		`, ev.EventID, ev.AggregateID, ev.EventType, ev.Payload, ev.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("erro ao inserir evento na outbox: %w", err)
+		}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("erro no commit de criacao: %w", err)
+	}
+	return nil
+}
