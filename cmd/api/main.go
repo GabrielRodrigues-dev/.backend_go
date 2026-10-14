@@ -21,11 +21,13 @@ func main() {
 			usecase.NewProcessBetUseCase,
 			handler.NewWalletHandler,
 			worker.NewSQSWorker,
+			worker.NewOutboxWorker,
 		),
 		// INVOKE: Diz ao Fx o que deve arrancar
 		fx.Invoke(
-			myhttp.StartHTTPServer, // Isto vai acionar o OnStart que regista a porta 8080
-			worker.StartWorker,     // <--- Inicia a Goroutine do SQS no arranque
+			myhttp.StartHTTPServer,   // Isto vai acionar o OnStart que regista a porta 8080
+			worker.StartWorker,       // <--- Inicia a Goroutine do SQS no arranque
+			worker.StartOutboxWorker, // <--- Inicia a Goroutine do Outbox no arranque
 		),
 	)
 
